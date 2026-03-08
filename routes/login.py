@@ -3,6 +3,9 @@ from pydantic import BaseModel, EmailStr
 from fastapi.responses import RedirectResponse
 from .emailsender import send_otp, verify_otp
 from repo.jwt import SecurityConfig, enhanced_jwt_wrapper, jwt_wrapper
+# import datetime
+from datetime import datetime
+from database.db import db
 
 
 router = APIRouter()
@@ -27,6 +30,25 @@ async def verify(data: OTPVerifyRequest):
 
     if not await verify_otp(data.email, data.otp):
         return {"valid": False}
+    
+
+        # ------------------------------------------------
+    # DATABASE: create user if not exists
+    # ------------------------------------------------
+
+    user = db.table("users").where(email=data.email).first()
+
+    if not user:
+        db.insert(
+            "users",
+            {
+                "email": data.email,
+                "username": data.email.split("@")[0],
+                "profile": {},
+                "created_at": datetime.utcnow().isoformat()
+            }
+        )
+
 
     access_token = jwt_wrapper.create_access_token(
         sub=data.email
@@ -66,3 +88,14 @@ async def refresh(request: Request):
     tokens = jwt_wrapper.refresh_access_token(refresh_token)
 
     return tokens
+
+
+@router.get("/users")
+async def get_users():
+
+    users = db.table("users").all()
+
+    return {
+        "count": len(users),
+        "data": users
+    }

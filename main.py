@@ -3,9 +3,19 @@ from repo.jwt import jwt_wrapper
 from fastapi.responses import RedirectResponse, HTMLResponse
 import uvicorn
 from routes.login import router
+from database.db import close_db, init_schema
+
 
 
 app = FastAPI()
+@app.on_event("startup")
+async def startup():
+    await init_schema()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await close_db()
 
 @app.post("/logout")
 async def logout():
@@ -37,7 +47,7 @@ async def home(request: Request):
 
 
 @router.get("/login")
-async def login():
+async def log_n():
     return HTMLResponse("<h1>Login Page</h1>")
 
 app.include_router(router,tags=["Email Auth"])
