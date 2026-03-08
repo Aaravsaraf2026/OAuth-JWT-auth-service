@@ -23,7 +23,7 @@ from enum import Enum
 import logging
 
 # Import base JWT wrapper
-from jwt_wrapper import (
+from .jwt_wrapper import (
     JWTWrapper, 
     JWTConfig, 
     TokenType,
