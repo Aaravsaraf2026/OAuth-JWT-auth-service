@@ -2,55 +2,45 @@ from fastapi import FastAPI,Request
 from repo.jwt import jwt_wrapper
 from fastapi.responses import RedirectResponse, HTMLResponse
 import uvicorn
+from contextlib import asynccontextmanager
+import repo.auth as auth
 from routes.login import router
+from routes.google_auth import api
 from database.db import close_db, init_schema
 
 
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 
-app = FastAPI()
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    oauth = auth.setup()        # ✅ runs first
+    await oauth.initialize()
     await init_schema()
-
-
-@app.on_event("shutdown")
-async def shutdown():
+    yield
     await close_db()
+    await oauth.shutdown()
+
+app = FastAPI(lifespan=lifespan)
+
+
+
 
 @app.post("/logout")
 async def logout():
 
-    response = RedirectResponse("/login", status_code=303)
+    response = RedirectResponse("/", status_code=303)
 
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
 
     return response
 
-@app.get("/")
-async def home(request: Request):
-
-    token = request.cookies.get("access_token")
-    print("cookies:", request.cookies)
-    print("token:", token)
-
-    if not token:
-        return HTMLResponse("<h1>Login again Page</h1>")
-
-    try:
-        payload = jwt_wrapper.verify(token)
-    except:
-        return HTMLResponse("<h1>Login done Page</h1>")
-
-    return {"message": "Welcome", "user": payload["sub"]}
 
 
 
-@router.get("/login")
-async def log_n():
-    return HTMLResponse("<h1>Login Page</h1>")
 
 app.include_router(router,tags=["Email Auth"])
+app.include_router(api,tags=["Email Auth"])
 
 
 if __name__ == "__main__":
@@ -64,3 +54,4 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
+

@@ -32,7 +32,7 @@ except ImportError:
 
 # Optional Redis dependency
 try:
-    from worker import connection_manager
+    from repo.redis.worker import connection_manager
 except ImportError:
     connection_manager = None
 
