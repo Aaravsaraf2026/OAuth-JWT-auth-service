@@ -6,25 +6,24 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime
 import repo.auth as auth
+api = APIRouter()
 
 from database.db import db
 
-api = APIRouter()
+
 
 from repo.jwt.jwt_wrapper import verify_token 
   # ← module-level function
 from repo.jwt import jwt_wrapper
 
 async def current_user(request: Request):
-    token = request.cookies.get("access_token")
-    if not token:
+    user = request.state.user
+
+    if not user:
         raise HTTPException(401, "Not authenticated")
-    try:
-        payload = verify_token(token, expected_type="access")  # ← direct function call
-        return payload
-    except Exception as e:
-        print("Auth failed:", e)
-        raise HTTPException(401, "Invalid or expired token")  
+
+    return user
+
 
 async def optional_user(request: Request):
     """Optional login — returns None if not authenticated."""
@@ -38,6 +37,10 @@ async def optional_user(request: Request):
 
 @api.get("/auth/login")
 async def login(request: Request):
+
+    if request.state.user:
+        return RedirectResponse("/dashboard")
+
     return await auth.get().login(request)
 
 
@@ -102,28 +105,8 @@ async def logout(request: Request):
 @api.get("/dashboard")
 async def dashboard(user = Depends(current_user)):
     return {
-        "email": user["sub"],    # jwt payload has sub = email
+        "email": user["sub"]
     }
-
-
-@api.get("/debug-cookies")
-async def debug_cookies(request: Request):
-    return {
-        "all_cookies":    dict(request.cookies),
-        "access_token":   request.cookies.get("access_token"),
-        "refresh_token":  request.cookies.get("refresh_token"),
-        "session":        request.cookies.get("session"),
-    }
-
-@api.get("/debug-decode")
-async def debug_decode(request: Request):
-    import jwt
-    token = request.cookies.get("access_token")
-    
-    # Decode WITHOUT verification to see raw payload
-    payload = jwt.decode(token, options={"verify_signature": False})
-    print(payload)
-    return payload
 
 
 @api.get("/me")

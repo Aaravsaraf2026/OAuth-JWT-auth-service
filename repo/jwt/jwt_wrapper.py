@@ -91,7 +91,7 @@ class JWTConfig:
     
     # JWT settings
     algorithm: str = field(
-        default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS256")
+        default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS384")
     )
     issuer: str = field(
         default_factory=lambda: os.getenv("JWT_ISSUER", "koko")
@@ -152,8 +152,9 @@ class JWTConfig:
         
         if self.algorithm not in ["HS256", "HS384", "HS512", "RS256", "RS384", "RS512"]:
             errors.append(
-                f"JWT_ALGORITHM '{self.algorithm}' is not recommended. "
-                f"Use HS256, HS384, HS512, RS256, RS384, or RS512"
+                f"JWT_ALGORITHM '{self.algorithm}' is not supported. "
+                f"For single-service apps use HS384 or HS512. "
+                f"For multi-service/microservice apps use RS256 or RS384 (asymmetric — safer)."
             )
         
         if errors:
@@ -675,6 +676,11 @@ class JWTWrapper:
             >>> jwt_wrapper.revoke(payload['jti'], payload['exp'])
         """
         if not self.config.use_redis:
+            if self.config.strict_mode:
+                raise RedisUnavailable(
+                    "Token revocation requires Redis. "
+                    "Set JWT_USE_REDIS=true or disable JWT_STRICT_MODE."
+                )
             logger.warning("Token revocation skipped: Redis not enabled")
             return False
         
@@ -694,13 +700,13 @@ class JWTWrapper:
             >>> jwt_wrapper.revoke_token(access_token)
         """
         try:
-            payload = self.decode(token)
+            payload = self.decode_unverified(token)
             return self.revoke(payload["jti"], payload["exp"])
         except Exception as e:
             logger.error(f"Failed to revoke token: {e}")
             return False
     
-    def decode(self, token: str) -> Dict[str, Any]:
+    def decode_unverified(self, token: str) -> Dict[str, Any]:
         """
         Decode token without verification (use with caution).
         
@@ -740,7 +746,7 @@ class JWTWrapper:
             >>> info = jwt_wrapper.get_token_info(token)
             >>> print(f"Token expires at: {info['exp']}")
         """
-        payload = self.decode(token)
+        payload = self.decode_unverified(token)
         
         return {
             "sub": payload.get("sub"),

@@ -241,11 +241,9 @@ class EnhancedJWTWrapper(JWTWrapper):
         forbidden_found = []
         for key in data.keys():
             key_lower = key.lower()
-            for forbidden in self.security_config.forbidden_payload_keys:
-                if forbidden in key_lower:
-                    forbidden_found.append(key)
-                    break
-        
+            if key_lower in self.security_config.forbidden_payload_keys:
+                forbidden_found.append(key)
+                
         if forbidden_found:
             error_msg = (
                 f"Forbidden keys in payload: {forbidden_found}. "
@@ -284,6 +282,10 @@ class EnhancedJWTWrapper(JWTWrapper):
         
         redis = self._get_redis()
         if not redis:
+            logger.error(
+                "SECURITY WARNING: Refresh rate limiting is INACTIVE — "
+                "Redis unavailable. All refresh attempts are being permitted."
+            )
             return False
         
         rate_limit_key = f"jwt:refresh_rate:{sub}"
@@ -293,9 +295,14 @@ class EnhancedJWTWrapper(JWTWrapper):
             attempts = redis.incr(rate_limit_key)
             
             # Set expiry on first attempt
-            if attempts == 1:
-                redis.expire(rate_limit_key, self.security_config.refresh_rate_limit_window_seconds)
-            
+            pipe = redis.pipeline()
+            pipe.incr(rate_limit_key)
+            pipe.expire(
+                rate_limit_key,
+                self.security_config.refresh_rate_limit_window_seconds,
+                nx=True   # only set expiry if it doesn't already exist
+            )
+            attempts, _ = pipe.execute()
             # Check limit
             if attempts > self.security_config.refresh_rate_limit_count:
                 logger.warning(
@@ -324,7 +331,7 @@ class EnhancedJWTWrapper(JWTWrapper):
     
     def _generate_device_fingerprint(self, device_id: str) -> str:
         """Generate a hash of device ID for storage."""
-        return hashlib.sha256(device_id.encode()).hexdigest()[:16]
+        return hashlib.sha256(device_id.encode()).hexdigest()
     
     def _validate_device_binding(
         self, 
@@ -643,23 +650,16 @@ class AsyncEnhancedJWTWrapper(EnhancedJWTWrapper):
         ...     return token
     """
     
+# enhanced_jwt_wrapper.py — lines 646-661
     async def _is_revoked_async(self, jti: str) -> bool:
-        """Async version of revocation check."""
-        # This is a placeholder - actual implementation requires async Redis client
-        # For production, use aioredis or redis-py with asyncio support
-        
-        if not self.config.use_redis:
-            return False
-        
-        # TODO: Replace with actual async Redis implementation
-        # Example with aioredis:
-        # redis = await self._get_async_redis()
-        # is_revoked = await redis.exists(self._blacklist_key(jti))
-        # return bool(is_revoked)
-        
-        # Fallback to sync for now
-        return self._is_revoked(jti)
-    
+        raise NotImplementedError(
+            "AsyncEnhancedJWTWrapper is not production-ready. "
+            "Implement this method with an async Redis client before use. "
+            "See commented example below for aioredis implementation."
+        )
+        # When ready, implement like this:
+        # redis = await aioredis.from_url(REDIS_URL)
+        # return bool(await redis.exists(self._blacklist_key(jti)))
     async def verify_async(
         self,
         token: str,

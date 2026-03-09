@@ -22,6 +22,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+from security.middleware import SecurityMiddleware
+
+app.add_middleware(SecurityMiddleware)
 
 
 

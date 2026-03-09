@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, EmailStr
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.exceptions import HTTPException
 from .emailsender import send_otp, verify_otp
 from repo.jwt import SecurityConfig, enhanced_jwt_wrapper, jwt_wrapper
+from repo.jwt.jwt_wrapper import get_default_wrapper
 # import datetime
 from datetime import datetime
 from database.db import db
@@ -79,17 +81,25 @@ async def verify(data: OTPVerifyRequest):
     )
     return response
 
+jwt = get_default_wrapper()
 
 @router.post("/refresh")
 async def refresh(request: Request):
 
     refresh_token = request.cookies.get("refresh_token")
 
-    tokens = jwt_wrapper.refresh_access_token(refresh_token)
+    if not refresh_token:
+        raise HTTPException(401, "Missing refresh token")
 
-    return tokens
+    try:
+        tokens = jwt.refresh_access_token(refresh_token)
+        return tokens
 
-
+    except Exception as e:
+        print("REFRESH ERROR:", e)
+        raise HTTPException(401, str(e))
+    
+    
 @router.get("/users")
 async def get_users():
 
