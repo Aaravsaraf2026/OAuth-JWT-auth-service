@@ -17,7 +17,25 @@ Key capabilities include:
 * PostgreSQL database storage
 * Dockerized multi-service backend
 * FastAPI-based API service
+# OAuth JWT Auth Service
 
+## Features
+- Google OAuth login
+- JWT access/refresh tokens
+- Redis token store
+- PostgreSQL database
+- Dockerized backend
+
+## Architecture
+(diagram)
+
+## Run
+docker compose up --build
+
+## API
+/auth/login
+/auth/callback
+/dashboard
 The system is designed with **security, modular architecture, and containerized deployment** in mind.
 
 ---
