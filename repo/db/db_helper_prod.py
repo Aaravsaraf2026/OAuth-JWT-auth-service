@@ -343,7 +343,7 @@ class DB:
             self._sqlite_conn.commit()
         else:
             # For file databases, test with a temporary connection
-            with self._connect() as conn:
+            with self.engine.begin() as conn:
                 if isinstance(conn, sqlite3.Connection):
                     conn.execute("SELECT 1")
                 else:
@@ -569,7 +569,7 @@ class DB:
                 if "already exists" in str(e).lower() and if_not_exists:
                     return False
                 raise DBError(f"Failed to create table: {e}")
-    
+        
     def create_index(
         self,
         name: str,
@@ -582,7 +582,7 @@ class DB:
         """Create advanced index."""
         if isinstance(columns, str):
             columns = [columns]
-        
+
         config = IndexConfig(
             name=name,
             table=table,
@@ -591,24 +591,27 @@ class DB:
             index_type=index_type,
             where=where
         )
-        
+
         sql = config.to_sql(self.db_type)
-        
+
         try:
-            with self._connect() as conn:
-                if self.engine:
+            if self.engine:
+                with self.engine.begin() as conn:
                     conn.execute(text(sql))
-                else:
+            else:
+                with self._connect() as conn:
                     conn.execute(sql)
-            
+
             self._indexes[name] = config
             logger.info(f"Created index '{name}'")
             return True
+
         except Exception as e:
             if "already exists" in str(e).lower():
                 return False
             raise DBError(f"Failed to create index: {e}")
-    
+
+
     def create_fulltext_index(
         self,
         name: str,

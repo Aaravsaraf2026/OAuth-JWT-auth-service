@@ -31,11 +31,11 @@ except ImportError:
     )
 
 # Optional Redis dependency
-try:
-    from repo.redis.worker import connection_manager
-except ImportError:
-    connection_manager = None
-
+# try:
+#     from ..queue.worker  import connection_manager
+# except ImportError:
+#     connection_manager = None
+from repo.queue.worker import connection_manager
 
 # ================= LOGGING SETUP =================
 

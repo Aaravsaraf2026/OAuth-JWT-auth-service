@@ -350,19 +350,18 @@ def _setup_pool_monitoring(engine: Engine, name: str) -> None:
             logger.error(f"Error in connect handler: {e}", exc_info=True)
             with _metrics_lock:
                 _pool_metrics[name]['failed_connections'] += 1
-    
+        
     @event.listens_for(engine, "checkin")
     def on_checkin(dbapi_conn, conn_record):
+        if dbapi_conn is None:
+            return
+
         try:
             cursor = dbapi_conn.cursor()
             cursor.execute("SELECT 1")
             cursor.close()
-        except Exception as e:
-            logger.warning(f"Connection validation failed: {e}")
-            with _metrics_lock:
-                _pool_metrics[name]['failed_connections'] += 1
+        except Exception:
             raise DisconnectionError("Stale connection detected")
-
 
 def get_pool_status(engine: Engine) -> PoolMetrics:
     """Get comprehensive pool status."""
@@ -624,7 +623,7 @@ def create_postgresql_engine(
         pool_size=pool_size,
         max_overflow=max_overflow,
         pool_recycle=DEFAULT_POOL_RECYCLE,
-        pool_pre_ping=True,
+        pool_pre_ping=False,
         pool_timeout=DEFAULT_POOL_TIMEOUT,
         isolation_level="READ COMMITTED",
     )

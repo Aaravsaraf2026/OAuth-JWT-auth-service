@@ -72,9 +72,9 @@ async def send_email(to: str, subject: str, body: str) -> bool:
 # =============================
 # STORAGE SETUP
 # =============================
-print("USE_REDIS =", os.getenv("USE_REDIS"))
+
 if settings.USE_REDIS:
-    print("using redis from sender file")
+    
     redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
 
     storage = RedisStore(
